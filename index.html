@@ -1,0 +1,53 @@
+<!-- static/index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Depth Map Streaming</title>
+</head>
+<body>
+    <h1>Real-Time Depth Map Streaming</h1>
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <img id="depth" alt="Depth Map" />
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const depthImage = document.getElementById('depth');
+
+        // Start video stream from the camera
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => console.error("Error accessing camera: ", err));
+
+        const ws = new WebSocket(`ws://${location.host}/ws`);
+
+        ws.onopen = () => {
+            console.log("WebSocket connection opened.");
+
+            // Capture video frames and send to the server
+            setInterval(() => {
+                const context = canvas.getContext('2d');
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob(blob => {
+                    ws.send(blob);
+                }, 'image/jpeg');
+            }, 100); // Send frames every 100ms
+        };
+
+        ws.onmessage = (event) => {
+            // Update the depth map image
+            depthImage.src = URL.createObjectURL(event.data);
+        };
+
+        ws.onclose = () => {
+            console.log("WebSocket connection closed.");
+        };
+    </script>
+</body>
+</html>
